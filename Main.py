@@ -1,42 +1,50 @@
-import numpy as np
 import pandas as pd
-from sklearn.ensemble import IsolationForest
-from datetime import datetime
+from datetime import datetime, timedelta
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
 
-class EnvironmentalMonitoringAgent:
-    def __init__(self, sensor_data):
-        self.sensor_data = sensor_data
-        self.model = IsolationForest(contamination=0.1)
+class HealthcareAssistantAgent:
+    def __init__(self, patient_records, appointment_data):
+        self.patient_records = patient_records
+        self.appointment_data = appointment_data
+        self.vectorizer = TfidfVectorizer()
+        self.model = LogisticRegression()
     
-    def collect_data(self):
-        # Assume sensor_data is continuously updated
-        self.data = pd.DataFrame(self.sensor_data)
+    def manage_records(self, new_record):
+        self.patient_records = self.patient_records.append(new_record, ignore_index=True)
     
-    def detect_anomalies(self):
-        X = self.data[['Temperature', 'Humidity', 'Air_Quality']]
-        self.model.fit(X)
-        self.data['Anomaly'] = self.model.predict(X)
-        anomalies = self.data[self.data['Anomaly'] == -1]
-        return anomalies
+    def schedule_appointment(self, patient_id, preferred_time):
+        available_slots = self.appointment_data[self.appointment_data['Available'] == True]
+        for index, slot in available_slots.iterrows():
+            if slot['Time'] >= preferred_time:
+                self.appointment_data.at[index, 'Available'] = False
+                self.appointment_data.at[index, 'Patient_ID'] = patient_id
+                return slot['Time']
+        return "No available slots"
     
-    def analyze_trends(self):
-        self.data['Date'] = pd.to_datetime(self.data['Timestamp'])
-        self.data.set_index('Date', inplace=True)
-        trends = self.data.resample('D').mean()
-        return trends
+    def send_medication_reminders(self, patient_id):
+        patient = self.patient_records[self.patient_records['Patient_ID'] == patient_id]
+        medication_schedule = patient['Medication_Schedule'].values[0]
+        reminders = []
+        for med, time in medication_schedule.items():
+            reminder_time = datetime.now() + timedelta(minutes=time)
+            reminders.append({'Patient_ID': patient_id, 'Medication': med, 'Reminder_Time': reminder_time})
+        return reminders
     
-    def send_alerts(self, anomalies):
-        alerts = anomalies[['Timestamp', 'Temperature', 'Humidity', 'Air_Quality']]
-        # Implement alert sending mechanism (e.g., email, SMS)
-        return alerts
+    def symptom_checker(self, symptoms):
+        # Dummy symptom checker model for demonstration
+        symptoms_vector = self.vectorizer.transform([symptoms])
+        diagnosis = self.model.predict(symptoms_vector)
+        return diagnosis
     
-    def generate_report(self):
-        trends = self.analyze_trends()
-        anomalies = self.detect_anomalies()
-        alerts = self.send_alerts(anomalies)
-        report = {
-            'Trends': trends,
-            'Anomalies': anomalies,
-            'Alerts': alerts
-        }
-        return report
+    def healthcare_analytics(self):
+        analytics = self.patient_records.describe()
+        return analytics
+
+    def run_healthcare_assistant(self, new_record, patient_id, preferred_time, symptoms):
+        self.manage_records(new_record)
+        appointment = self.schedule_appointment(patient_id, preferred_time)
+        reminders = self.send_medication_reminders(patient_id)
+        diagnosis = self.symptom_checker(symptoms)
+        analytics = self.healthcare_analytics()
+        return {'Appointment': appointment, 'Reminders': reminders, 'Diagnosis': diagnosis, 'Analytics': analytics}
